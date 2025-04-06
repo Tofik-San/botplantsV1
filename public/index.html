@@ -1,0 +1,41 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>greenCor</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <script>
+    function setVh() {
+      document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+    }
+    window.addEventListener('resize', setVh);
+    window.addEventListener('load', setVh);
+  </script>
+</head>
+<body>
+  <div class="main-container">
+    <div id="chat"></div>
+    <div class="input-container">
+      <textarea id="input" rows="1" placeholder="Введите сообщение..." oninput="autoGrow(this)"></textarea>
+      <button onclick="sendMessage()">→</button>
+    </div>
+  </div>
+  <script src="chat.js"></script>
+  <script>
+    function autoGrow(element) {
+      element.style.height = "auto";
+      element.style.height = Math.min(element.scrollHeight, 120) + "px";
+      element.scrollTop = element.scrollHeight;
+    }
+    const chat = document.getElementById("chat");
+    document.getElementById("input").addEventListener("focus", () => {
+      setTimeout(() => {
+        chat.scrollTop = chat.scrollHeight;
+      }, 300);
+    });
+  </script>
+</body>
+</html>

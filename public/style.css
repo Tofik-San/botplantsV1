@@ -1,0 +1,91 @@
+
+.main-container {
+  position: relative;
+  height: calc(var(--vh, 1vh) * 95);
+  max-width: 600px;
+  margin: 10px auto;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  overflow: hidden;
+  background-color: #f9f6ef;
+  display: flex;
+  flex-direction: column;
+}
+
+#chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.input-container {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-top: 1px solid #ddd;
+  background-color: #f9f6ef;
+}
+
+textarea {
+  flex: 1;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 14px;
+  resize: none;
+  overflow: hidden;
+  min-height: 36px;
+  max-height: 120px;
+  background-color: white;
+  line-height: 1.4;
+}
+
+button {
+  width: 40px;
+  height: 40px;
+  margin-left: 10px;
+  border-radius: 50%;
+  border: none;
+  background-color: #b6e388;
+  color: black;
+  font-weight: bold;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .main-container {
+    margin: 5px;
+    border-radius: 8px;
+  }
+}
+
+.message {
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 16px; /* Увеличен размер шрифта */
+  line-height: 1.6;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  max-width: 75%;
+  margin-bottom: 8px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+
+
+.user {
+  background-color: #dcf8c6;
+  align-self: flex-end;
+}
+
+.bot {
+  background-color: #ffffff;
+  align-self: flex-start;
+}
