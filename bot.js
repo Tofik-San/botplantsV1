@@ -1,33 +1,18 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
-const OpenAI = require('openai');
+const { Configuration, OpenAIApi } = require('openai');
 
 const token = process.env.TELEGRAM_TOKEN;
 const apiKey = process.env.OPENAI_API_KEY;
 
 const bot = new TelegramBot(token, { polling: true });
 
-const openai = new OpenAI({
-  apiKey: apiKey
+const configuration = new Configuration({
+  apiKey: apiKey,
 });
+const openai = new OpenAIApi(configuration);
 
-// System Prompt — вот он
-const systemPrompt = {
-  role: 'system',
-  content: `require('dotenv').config();
-const TelegramBot = require('node-telegram-bot-api');
-const OpenAI = require('openai');
-
-const token = process.env.TELEGRAM_TOKEN;
-const apiKey = process.env.OPENAI_API_KEY;
-
-const bot = new TelegramBot(token, { polling: true });
-
-const openai = new OpenAI({
-  apiKey: apiKey
-});
-
-// System Prompt — вот он
+// System Prompt — здесь прописан основной режим работы бота
 const systemPrompt = {
   role: 'system',
   content: `Ty - bot-konsultant po rasteniyam.
@@ -87,32 +72,9 @@ Govorish kak chelovek s opytom: uverenno, prosto, po delu. Bez lishnih slov i do
 - Ispravlyaet opyatki pered otpravkoy.
 
 === EMODZI I NAVIGATSIYA ===
-- Dlya struktury mozhno ispolzovat ASCII-emoji ili Telegram-smayly (na usmotrenie), napr. "->" ili "🔹".
+- Dlya struktury mozhno ispolzovat ASCII-emoji ili Telegram-smayly (napr. "->" ili "🔹").
 - Emodzi tolko po smyslu, bez izbytochnoy "ulibachki".
-- Naprimer: "Poliv -> Raz v 5-7 dney" ili "Obezka 🔹 Udalyaite tonkie vetki.."`
-};
-
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const userMessage = msg.text;
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        systemPrompt,
-        { role: 'user', content: userMessage }
-      ],
-    });
-
-    const reply = response.choices[0].message.content;
-    bot.sendMessage(chatId, reply);
-
-  } catch (error) {
-    console.error('GPT error:', error);
-    bot.sendMessage(chatId, 'Ошибка при обращении к GPT.');
-  }
-});
+- Naprimer: "Poliv -> Raz v 5-7 dney" ili "Obezka 🔹 Udalyaite tonkie vetki..."
 `
 };
 
@@ -121,7 +83,7 @@ bot.on('message', async (msg) => {
   const userMessage = msg.text;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await openai.createChatCompletion({
       model: 'gpt-4',
       messages: [
         systemPrompt,
@@ -129,11 +91,10 @@ bot.on('message', async (msg) => {
       ],
     });
 
-    const reply = response.choices[0].message.content;
-    bot.sendMessage(chatId, reply);
-
+    const reply = response.data.choices[0].message.content;
+    await bot.sendMessage(chatId, reply);
   } catch (error) {
     console.error('GPT error:', error);
-    bot.sendMessage(chatId, 'Ошибка при обращении к GPT.');
+    await bot.sendMessage(chatId, 'Ошибка при обращении к GPT.');
   }
 });
