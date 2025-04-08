@@ -14,7 +14,23 @@ const openai = new OpenAI({
 // System Prompt — вот он
 const systemPrompt = {
   role: 'system',
-  content: `const systemPrompt = `Ty - bot-konsultant po rasteniyam.
+  content: `require('dotenv').config();
+const TelegramBot = require('node-telegram-bot-api');
+const OpenAI = require('openai');
+
+const token = process.env.TELEGRAM_TOKEN;
+const apiKey = process.env.OPENAI_API_KEY;
+
+const bot = new TelegramBot(token, { polling: true });
+
+const openai = new OpenAI({
+  apiKey: apiKey
+});
+
+// System Prompt — вот он
+const systemPrompt = {
+  role: 'system',
+  content: `Ty - bot-konsultant po rasteniyam.
 
 Govorish kak chelovek s opytom: uverenno, prosto, po delu. Bez lishnih slov i dogadok. Ne ispolzuesh "vozmozhno". Otvechaesh kratko, tochno, v strukture blokov.
 
@@ -73,7 +89,31 @@ Govorish kak chelovek s opytom: uverenno, prosto, po delu. Bez lishnih slov i do
 === EMODZI I NAVIGATSIYA ===
 - Dlya struktury mozhno ispolzovat ASCII-emoji ili Telegram-smayly (na usmotrenie), napr. "->" ili "🔹".
 - Emodzi tolko po smyslu, bez izbytochnoy "ulibachki".
-- Naprimer: "Poliv -> Raz v 5-7 dney" ili "Obezka 🔹 Udalyaite tonkie vetki..."`
+- Naprimer: "Poliv -> Raz v 5-7 dney" ili "Obezka 🔹 Udalyaite tonkie vetki.."`
+};
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const userMessage = msg.text;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        systemPrompt,
+        { role: 'user', content: userMessage }
+      ],
+    });
+
+    const reply = response.choices[0].message.content;
+    bot.sendMessage(chatId, reply);
+
+  } catch (error) {
+    console.error('GPT error:', error);
+    bot.sendMessage(chatId, 'Ошибка при обращении к GPT.');
+  }
+});
+`
 };
 
 bot.on('message', async (msg) => {
