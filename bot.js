@@ -1,16 +1,20 @@
-require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const { Configuration, OpenAIApi } = require('openai');
 
+// Получаем токены из Railway
 const token = process.env.TELEGRAM_TOKEN;
+const openaiKey = process.env.OPENAI_API_KEY;
+
+// Инициализируем Telegram-бота
 const bot = new TelegramBot(token, { polling: true });
 
-const openai = new OpenAIApi(
-  new Configuration({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-);
+// Инициализируем OpenAI
+const configuration = new Configuration({
+  apiKey: openaiKey,
+});
+const openai = new OpenAIApi(configuration);
 
+// Обработка входящих сообщений
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
