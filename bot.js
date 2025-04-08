@@ -1,10 +1,12 @@
+require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 
-// Вставь сюда свой токен
-const token = 'ТВОЙ_ТОКЕН_СЮДА';
+const token = process.env.TELEGRAM_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
 
-bot.onText(/\/start/, (msg) => {
+bot.on('message', (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, 'Привет! Я бот по растениям. Задай мне вопрос или выбери команду.');
+  const userMessage = msg.text;
+
+  bot.sendMessage(chatId, `Вы сказали: ${userMessage}`);
 });
