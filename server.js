@@ -104,6 +104,7 @@ app.post("/api/chat", async (req, res) => {
     }
   }
 });
+require('./bot');
 
 app.listen(port, () => {
   console.log(`Сервер запущен на порту ${port}`);
