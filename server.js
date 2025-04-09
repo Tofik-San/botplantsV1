@@ -51,5 +51,5 @@ app.post("/api/chat", async (req, res) => {
 require('./bot');
 
 app.listen(port, () => {
-  console.log(`Ð¡ÐµÑÐ²ÐµÑ Ð·Ð°Ð¿ÑÑÐµÐ½ Ð½Ð° Ð¿Ð¾ÑÑÑ ${port}`);
+  console.log(`Сервер запущен на порту ${port}`);
 });
