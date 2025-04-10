@@ -88,7 +88,7 @@ bot.on('message', async (msg) => {
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [systemPrompt, ...recentHistory],
-      max_tokens: 400,
+      max_tokens: 1200,
     });
 
     const reply = response.choices[0].message.content;
