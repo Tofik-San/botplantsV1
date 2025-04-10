@@ -2,7 +2,7 @@
   "name": "greentoff-custom-gpt",
   "version": "1.0.0",
   "description": "Greentoff Core Chatbot",
-  "main": "server.js",
+  "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
