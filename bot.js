@@ -5,7 +5,7 @@ const OpenAI = require('openai');
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const servicesPrompt = {
+const systemPrompt = {
   role: 'system',
   content: `Ты — бот эмоциональной поддержки. Отвечаешь как спокойный, внимательный собеседник. Говоришь просто, честно, без лишнего. У тебя не задача «утешить», а — прояснить, снять напряжение, помочь собраться. Ты не давишь. Ты держишь.
 
@@ -44,57 +44,34 @@ const servicesPrompt = {
 
 const userHistories = {};
 
-const mainKeyboard = {
-  reply_markup: {
-    inline_keyboard: [
-      [{ text: 'Примеры ботов', callback_data: 'examples' }],
-      [{ text: 'Что входит в услугу', callback_data: 'scope' }],
-      [{ text: 'Сколько стоит', callback_data: 'price' }]
-    ]
-  }
-};
-
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, 'Привет! Я могу помочь создать Telegram-бота под любую задачу. Что вас интересует?', mainKeyboard);
-});
-
-bot.on('callback_query', async (query) => {
-  const chatId = query.message.chat.id;
-  const data = query.data;
-
-  let userMessage = '';
-  if (data === 'examples') userMessage = 'Примеры ботов';
-  if (data === 'scope') userMessage = 'Что входит в услугу';
-  if (data === 'price') userMessage = 'Сколько стоит';
-
-  await handlePrompt(chatId, userMessage);
-});
-
 bot.on('message', async (msg) => {
-  if (msg.text.startsWith('/start')) return;
-  await handlePrompt(msg.chat.id, msg.text.trim());
-});
+  const chatId = msg.chat.id;
+  const userMessage = msg.text?.trim();
 
-async function handlePrompt(chatId, userMessage) {
-  if (!userHistories[chatId]) userHistories[chatId] = [];
+  if (!userMessage) return;
+
+  if (!userHistories[chatId]) {
+    userHistories[chatId] = [];
+  }
 
   userHistories[chatId].push({ role: 'user', content: userMessage });
 
-  const history = userHistories[chatId].slice(-6);
+  const recentHistory = userHistories[chatId].slice(-6);
 
   try {
-    const res = await openai.chat.completions.create({
+    const response = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: [servicesPrompt, ...history],
-      max_tokens: 400
+      messages: [systemPrompt, ...recentHistory],
+      max_tokens: 400,
     });
 
-    const reply = res.choices[0].message.content;
+    const reply = response.choices[0].message.content;
+
     userHistories[chatId].push({ role: 'assistant', content: reply });
 
-    await bot.sendMessage(chatId, reply, mainKeyboard);
-  } catch (err) {
-    console.error('GPT error:', err.message);
-    await bot.sendMessage(chatId, 'Произошла ошибка. Попробуйте позже.');
+    await bot.sendMessage(chatId, reply);
+  } catch (error) {
+    console.error('GPT error:', error.message);
+    await bot.sendMessage(chatId, 'Что-то пошло не так. Попробуйте позже.');
   }
-}
+});
