@@ -77,7 +77,7 @@ async function handlePrompt(chatId, userMessage) {
     const res = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [servicesPrompt, ...history],
-      max_tokens: 400
+      max_tokens: 1200
     });
 
     const reply = res.choices[0].message.content;
