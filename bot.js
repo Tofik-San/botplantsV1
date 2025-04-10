@@ -5,7 +5,7 @@ const OpenAI = require('openai');
 const token = process.env.TELEGRAM_TOKEN;
 const apiKey = process.env.OPENAI_API_KEY;
 
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token); // убрали polling из конструктора
 
 const openai = new OpenAI({ apiKey });
 
@@ -58,23 +58,43 @@ const systemPrompt = {
 Ты не справочник. Ты — уверенный помощник. Отвечаешь просто, по делу, чтобы человеку стало ясно, что делать и почему.`
 };
 
+// История сообщений для каждого пользователя
+const userHistories = {};
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const userMessage = msg.text;
+  const userMessage = msg.text.trim();
+
+  if (!userHistories[chatId]) {
+    userHistories[chatId] = [systemPrompt];
+  }
+
+  userHistories[chatId].push({ role: 'user', content: userMessage });
+
+  // Обрезаем до последних 6 сообщений + systemPrompt
+  if (userHistories[chatId].length > 8) {
+    userHistories[chatId] = [systemPrompt].concat(userHistories[chatId].slice(-6));
+  }
 
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: [
-        systemPrompt,
-        { role: 'user', content: userMessage }
-      ]
+      messages: userHistories[chatId],
+      max_tokens: 400, // ограничение длины ответа
     });
 
     const reply = response.choices[0].message.content;
+
+    userHistories[chatId].push({ role: 'assistant', content: reply });
+
     await bot.sendMessage(chatId, reply);
   } catch (error) {
     console.error('GPT error:', error.message);
     await bot.sendMessage(chatId, 'Ошибка при обращении к GPT. Проверь настройки и ключ.');
   }
 });
+
+// Запуск polling, только если файл — основной
+if (require.main === module) {
+  bot.startPolling();
+}
