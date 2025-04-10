@@ -5,8 +5,7 @@ const OpenAI = require('openai');
 const token = process.env.TELEGRAM_TOKEN;
 const apiKey = process.env.OPENAI_API_KEY;
 
-const bot = new TelegramBot(token); // убрали polling из конструктора
-
+const bot = new TelegramBot(token);
 const openai = new OpenAI({ apiKey });
 
 // System Prompt
@@ -58,29 +57,29 @@ const systemPrompt = {
 Ты не справочник. Ты — уверенный помощник. Отвечаешь просто, по делу, чтобы человеку стало ясно, что делать и почему.`
 };
 
-// История сообщений для каждого пользователя
+// История сообщений (без systemPrompt внутри)
 const userHistories = {};
 
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const userMessage = msg.text.trim();
+  const userMessage = msg.text?.trim();
+
+  if (!userMessage) return;
 
   if (!userHistories[chatId]) {
-    userHistories[chatId] = [systemPrompt];
+    userHistories[chatId] = [];
   }
 
   userHistories[chatId].push({ role: 'user', content: userMessage });
 
-  // Обрезаем до последних 6 сообщений + systemPrompt
-  if (userHistories[chatId].length > 8) {
-    userHistories[chatId] = [systemPrompt].concat(userHistories[chatId].slice(-6));
-  }
+  // Ограничиваем историю до последних 6 сообщений (без system)
+  const recentHistory = userHistories[chatId].slice(-6);
 
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: userHistories[chatId],
-      max_tokens: 400, // ограничение длины ответа
+      messages: [systemPrompt, ...recentHistory],
+      max_tokens: 400,
     });
 
     const reply = response.choices[0].message.content;
@@ -94,7 +93,6 @@ bot.on('message', async (msg) => {
   }
 });
 
-// Запуск polling, только если файл — основной
 if (require.main === module) {
   bot.startPolling();
 }
