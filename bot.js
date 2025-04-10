@@ -1,28 +1,16 @@
-require('dotenv').config();
-const TelegramBot = require('node-telegram-bot-api');
-const OpenAI = require('openai');
-const fs = require('fs');
+const TelegramBot = require("node-telegram-bot-api");
+const fs = require("fs");
 
 const token = process.env.TELEGRAM_TOKEN;
-const apiKey = process.env.OPENAI_API_KEY;
-
 const bot = new TelegramBot(token, { polling: true });
-const openai = new OpenAI({ apiKey: apiKey });
 
-// Загружаем базу растений
-const plants = JSON.parse(fs.readFileSync('plants.json', 'utf-8'));
 let activePlant = null;
+const plants = JSON.parse(fs.readFileSync("plants.json", "utf-8"));
 
-// Основной обработчик сообщений
-bot.on('message', async (msg) => {
+bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text.toLowerCase();
 
-  if (!text || text.length < 2) {
-    return bot.sendMessage(chatId, 'Пожалуйста, напишите название растения или уточните, что именно интересует.');
-  }
-
-  // Пытаемся найти растение в базе
   const foundPlant = plants.find(p =>
     text.includes(p.name.toLowerCase()) || text.includes(p.latin.toLowerCase())
   );
@@ -33,70 +21,55 @@ bot.on('message', async (msg) => {
     const name = foundPlant.name;
     const desc = foundPlant.description;
     const match = foundPlant.short_care;
-    const who = foundPlant.for_whom?.join(', ') || '';
+    const who = foundPlant.for_whom?.join(", ") || "";
 
-    let response = `${name} — ${desc}
-`;
-    if (who) response += `Подойдёт тем, кто: ${who}
+    let response = `${name} — ${desc}\n`;
+    if (who) response += `Подойдёт тем, кто: ${who}\n\n`;
 
-`;
-
-    response += `Уход:
-Свет — ${match.Свет}
-Полив — ${match.Полив}
-Грунт — ${match.Грунт}`;
-
-    if (foundPlant.final) {
-      response += `
-
-${foundPlant.final}`;
-    }
-
-    response += `
-
-Если нужно подробнее — уточните, что именно интересует: Полив, Удобрения, Посадка и т.д.`;
+    response += `Уход:\nСвет — ${match.Свет}\nПолив — ${match.Полив}\nГрунт — ${match.Грунт}\n\nЕсли нужно подробнее — уточните, что именно интересует: Полив, Удобрения, Посадка и т.д.`;
 
     return bot.sendMessage(chatId, response);
   }
 
-  // Если растение уже выбрано — обрабатываем уточняющие запросы
   if (activePlant) {
-    if (text.includes('посадк')) {
-      return bot.sendMessage(chatId, `Посадка: ${activePlant.planting?.Грунт || 'Информация не указана.'}`);
+    const fert = activePlant.fertilizer;
+    const prun = activePlant.pruning;
+    const plant = activePlant.planting;
+
+    if (text.includes("посадк")) {
+      return bot.sendMessage(chatId, `Посадка:\n${plant?.Грунт || "Информация не указана."}`);
     }
-    if (text.includes('удобрени')) {
-      const fert = activePlant.fertilizer;
-      return bot.sendMessage(chatId, `Удобрения:
-Когда: ${fert.Когда}
-Чем: ${fert.Чем}
-Нюанс: ${fert.Нюанс}`);
+
+    if (text.includes("удобрени")) {
+      return bot.sendMessage(chatId,
+        `Удобрения:\nКогда: ${fert?.Когда || "–"}\nЧем: ${fert?.Чем || "–"}\nНюанс: ${fert?.Нюанс || "–"}`
+      );
     }
-    if (text.includes('обрезк')) {
-      const prun = activePlant.pruning;
-      return bot.sendMessage(chatId, `Обрезка:
-Когда: ${prun.Когда}
-Что удалять: ${prun['Что удалять']}`);
+
+    if (text.includes("обрезк")) {
+      return bot.sendMessage(chatId,
+        `Обрезка:\nКогда: ${prun?.Когда || "–"}\nЧто удалять: ${prun?.["Что удалять"] || "–"}`
+      );
     }
-    if (text.includes('полив')) {
-      const care = activePlant.care;
-      return bot.sendMessage(chatId, `Полив:
-${care.Полив || 'Информация не указана.'}`);
-    }
-    if (text.includes('проблем') || text.includes('сброс') || text.includes('опадают') || text.includes('вянет')) {
+
+    if (
+      text.includes("проблем") ||
+      text.includes("сброс") ||
+      text.includes("опадают") ||
+      text.includes("вянет")
+    ) {
       const issues = activePlant.problems;
       if (issues) {
-        let response = 'Возможные проблемы:
-';
+        let response = "Возможные проблемы:\n";
         for (const key in issues) {
-          response += `— ${key}: ${issues[key]}
-`;
+          response += `— ${key}: ${issues[key]}\n`;
         }
         return bot.sendMessage(chatId, response.trim());
       }
     }
 
-    return bot.sendMessage(chatId, 'Уточните, что именно интересует: Полив, Удобрения, Посадка и т.д.');
+    return bot.sendMessage(chatId, "Уточните, что именно интересует: Полив, Удобрения, Посадка и т.д.");
   }
 
-  bot.sendMessage(chatId, 'Чтобы помочь, напишите название растения.');
+  bot.sendMessage(chatId, "Чтобы помочь, напишите название растения.");
 });
