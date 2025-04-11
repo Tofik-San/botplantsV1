@@ -10,22 +10,29 @@ const openai = new OpenAI({ apiKey });
 
 const systemPrompt = {
   role: 'system',
-  content: `Ты — бот-консультант по растениям. Отвечаешь точно, уверенно и дружелюбно. Сначала ведёшь консультацию, потом предлагаешь помочь с покупкой. Используешь кнопки: "Связаться с менеджером", "Перейти в каталог", "Оформить доставку". Если пользователь просит "консультацию" — отвечаешь по уходу. Если пишет "как купить", "хочу купить", "что дальше" — показываешь кнопки.`
+  content: `Ты — бот-консультант по растениям. Работаешь как умный продавец: сначала консультируешь, потом предлагаешь варианты покупки. Стиль — спокойный, уверенный, дружелюбный. Говоришь просто, как человек. Помогаешь выбрать растение и довести до покупки.`
 };
 
 const userHistories = {};
 
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, 'Я помогу подобрать растение и, если нужно, сопроводить до покупки. С чего начнём?', {
+    reply_markup: {
+      keyboard: [['Подобрать растение'], ['Консультация по уходу']],
+      resize_keyboard: true,
+      one_time_keyboard: true
+    }
+  });
+});
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const text = msg.text?.toLowerCase().trim();
+  const userMessage = msg.text?.trim();
+  if (!userMessage || userMessage.startsWith('/start')) return;
 
-  if (!text) return;
-
-  if (!userHistories[chatId]) {
-    userHistories[chatId] = [];
-  }
-
-  userHistories[chatId].push({ role: 'user', content: text });
+  if (!userHistories[chatId]) userHistories[chatId] = [];
+  userHistories[chatId].push({ role: 'user', content: userMessage });
 
   const recentHistory = userHistories[chatId].slice(-6);
 
@@ -33,38 +40,30 @@ bot.on('message', async (msg) => {
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [systemPrompt, ...recentHistory],
-      max_tokens: 1000
+      max_tokens: 700
     });
 
     const reply = response.choices[0].message.content;
     userHistories[chatId].push({ role: 'assistant', content: reply });
 
-    if (text.includes('купить') || text.includes('дальше') || text.includes('заказать')) {
+    const isPurchaseQuery = /купить|заказать|оформить|доставка|менеджер|где взять/i.test(userMessage);
+
+    if (isPurchaseQuery) {
       await bot.sendMessage(chatId, reply, {
         reply_markup: {
           inline_keyboard: [
             [{ text: 'Связаться с менеджером', url: 'https://t.me/greentoff' }],
-            [{ text: 'Перейти в каталог', url: 'https://your-catalog-link.com' }],
-            [{ text: 'Оформить доставку', url: 'https://your-delivery-link.com' }],
-            [{ text: 'Получить консультацию по уходу', callback_data: 'consult' }]
+            [{ text: 'Перейти в каталог', url: 'https://yourshop.site/catalog' }],
+            [{ text: 'Оформить доставку', url: 'https://yourshop.site/delivery' }]
           ]
         }
       });
     } else {
       await bot.sendMessage(chatId, reply);
     }
-  } catch (err) {
-    console.error('GPT error:', err.message);
-    await bot.sendMessage(chatId, 'Ошибка. Проверь настройки.');
+
+  } catch (error) {
+    console.error('GPT error:', error.message);
+    await bot.sendMessage(chatId, 'Что-то пошло не так. Попробуйте ещё раз позже.');
   }
-});
-
-bot.on('callback_query', async (query) => {
-  const chatId = query.message.chat.id;
-
-  if (query.data === 'consult') {
-    await bot.sendMessage(chatId, 'Напишите, что вас интересует: полив, пересадка, удобрения или что-то ещё.');
-  }
-
-  await bot.answerCallbackQuery({ callback_query_id: query.id });
 });
