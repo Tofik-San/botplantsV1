@@ -10,81 +10,61 @@ const openai = new OpenAI({ apiKey });
 
 const systemPrompt = {
   role: 'system',
-  content: `Ты — бот-консультант по растениям. Отвечаешь уверенно, дружелюбно, без воды. Помогаешь человеку разобраться с растением, а если он хочет — сопровождаешь до покупки.
-
-== ПОВЕДЕНИЕ ==
-1. Если человек вводит название растения — дай описание, уход (Свет, Полив, Грунт) и предложи помощь.
-2. Если человек говорит, что хочет купить — уточни, что ищет (тип, условия, размер).
-3. После этого предложи:
-— Где лучше искать (магазины, питомники)
-— Что учитывать при выборе (здоровье, корни, листья)
-— Как проверить растение перед покупкой
-4. Заверши предложением: “Если хотите — могу подсказать конкретные примеры или магазины”.
-
-== КНОПКИ ==
-— Получить консультацию
-— Хочу купить
-— Где взять
-
-== СТИЛЬ ==
-— Без markdown, только обычный текст
-— Не пиши "я бот"
-— Говори по-человечески, но уверенно
-— Не фантазируй, только проверенное
-
-== ЦЕЛЬ ==
-Ты не просто помощник. Ты сопровождающий. Человек чувствует, что не один. И что с твоей помощью он точно выберет хорошее растение.`
+  content: `Ты — бот-консультант по растениям. Отвечаешь точно, уверенно и дружелюбно. Сначала ведёшь консультацию, потом предлагаешь помочь с покупкой. Используешь кнопки: "Связаться с менеджером", "Перейти в каталог", "Оформить доставку". Если пользователь просит "консультацию" — отвечаешь по уходу. Если пишет "как купить", "хочу купить", "что дальше" — показываешь кнопки.`
 };
 
 const userHistories = {};
 
-bot.setMyCommands([
-  { command: "/start", description: "Начать работу" },
-  { command: "/buy", description: "Хочу купить растение" },
-  { command: "/help", description: "Нужна консультация" }
-]);
-
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Привет. Чем могу помочь?", {
-    reply_markup: {
-      keyboard: [
-        ["Получить консультацию"],
-        ["Хочу купить"],
-        ["Где взять"]
-      ],
-      resize_keyboard: true,
-      one_time_keyboard: false
-    }
-  });
-});
-
-bot.on("message", async (msg) => {
+bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const text = msg.text;
+  const text = msg.text?.toLowerCase().trim();
 
-  if (!text || text.startsWith("/")) return;
+  if (!text) return;
 
   if (!userHistories[chatId]) {
     userHistories[chatId] = [];
   }
 
-  userHistories[chatId].push({ role: "user", content: text });
+  userHistories[chatId].push({ role: 'user', content: text });
 
-  const recent = userHistories[chatId].slice(-6);
+  const recentHistory = userHistories[chatId].slice(-6);
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [systemPrompt, ...recent],
-      max_tokens: 1000,
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [systemPrompt, ...recentHistory],
+      max_tokens: 1000
     });
 
-    const reply = completion.choices[0].message.content;
-    userHistories[chatId].push({ role: "assistant", content: reply });
+    const reply = response.choices[0].message.content;
+    userHistories[chatId].push({ role: 'assistant', content: reply });
 
-    await bot.sendMessage(chatId, reply);
+    if (text.includes('купить') || text.includes('дальше') || text.includes('заказать')) {
+      await bot.sendMessage(chatId, reply, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Связаться с менеджером', url: 'https://t.me/greentoff' }],
+            [{ text: 'Перейти в каталог', url: 'https://your-catalog-link.com' }],
+            [{ text: 'Оформить доставку', url: 'https://your-delivery-link.com' }],
+            [{ text: 'Получить консультацию по уходу', callback_data: 'consult' }]
+          ]
+        }
+      });
+    } else {
+      await bot.sendMessage(chatId, reply);
+    }
   } catch (err) {
-    console.error("GPT Error:", err.message);
-    await bot.sendMessage(chatId, "Что-то пошло не так. Попробуйте позже.");
+    console.error('GPT error:', err.message);
+    await bot.sendMessage(chatId, 'Ошибка. Проверь настройки.');
   }
+});
+
+bot.on('callback_query', async (query) => {
+  const chatId = query.message.chat.id;
+
+  if (query.data === 'consult') {
+    await bot.sendMessage(chatId, 'Напишите, что вас интересует: полив, пересадка, удобрения или что-то ещё.');
+  }
+
+  await bot.answerCallbackQuery({ callback_query_id: query.id });
 });
