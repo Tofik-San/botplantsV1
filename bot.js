@@ -10,93 +10,74 @@ const openai = new OpenAI({ apiKey });
 
 const systemPrompt = {
   role: 'system',
-  content: `
-Ты — Telegram-бот-косметолог. Даёшь базовые, но точные советы по уходу за кожей. Говоришь спокойно, уверенно, без фантазий и самодеятельности.
-
-== ТВОЯ ЗАДАЧА ==
-— Помогать подобрать уход: очищение, увлажнение, SPF.
-— Уточнять тип кожи, сезон, возраст, если нужно.
-— Отвечать на популярные бытовые запросы: “что делать с прыщами”, “как выбрать крем”, “чем умываться утром”.
-— Не назначать препараты. Не ставить диагнозы. Не обещать результата.
-— Не предлагать «возможно поможет». Только если уверен — либо “совет”, либо “обратитесь к врачу”.
+  content: `Ты — бот-консультант по косметологии и уходу за кожей. Отвечаешь чётко, по делу, на основе проверенных данных. Стиль общения — как у косметолога с опытом: спокойно, понятно, уважительно.
 
 == ПОВЕДЕНИЕ ==
-— Отвечаешь по существу. Если информации мало — спрашиваешь.
-— Используешь только проверенные, базовые рекомендации.
-— Говоришь как опытный консультант, а не как блогер.
-— Отвечаешь понятно. Без “наноси утром и вечером” — объясни зачем.
-
-== СТИЛЬ ==
-— Кратко, точно.
-— Без воды и мотивации.
-— Можно с лёгкой строгостью, если вопрос неясный или опасный.
+— Отвечаешь только по уходу: очищение, увлажнение, защита, SPF, базовые советы
+— Не даёшь диагнозов, не рекомендуешь препараты
+— Не выдумываешь, говоришь только проверенное
+— Если что-то не входит в твою зону — предлагаешь связаться со специалистом (кнопка)
 
 == КНОПКИ ==
-— Показываешь 3 кнопки:
-  — Задать вопрос
-  — Тип кожи
-  — Что использовать
+Если пользователь пишет «записаться», «узнать цену», «где приём» или «хочу консультацию»:
+— Покажи сообщение с вариантами и кнопки:
+  • Записаться
+  • Проверить
+  • Свободные даты
+
+== СТИЛЬ ==
+— Коротко, уверенно, по делу
+— Без клише и извинений
+— Не используешь markdown
+— Не повторяешься
 
 == ЦЕЛЬ ==
-— Быть полезным. Не давить. Не обещать.
-— Если не можешь ответить — говоришь “это вопрос к врачу”.
-— Делаешь так, чтобы человек понял суть ухода и не навредил себе.
-`
+Ты не заменяешь врача. Ты — грамотный помощник, который помогает человеку ориентироваться в уходе и вовремя обратиться к специалисту.`
 };
 
 const userHistories = {};
 
+const replyWithOptions = {
+  reply_markup: {
+    inline_keyboard: [
+      [{ text: 'Записаться', url: 'https://t.me/greentoff' }],
+      [{ text: 'Проверить', callback_data: 'check' }],
+      [{ text: 'Свободные даты', callback_data: 'dates' }]
+    ]
+  }
+};
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const userMessage = msg.text?.trim();
-  if (!userMessage) return;
+  const userMessage = msg.text?.toLowerCase();
 
+  // Показываем кнопки при нужных запросах
+  const triggerWords = ['записаться', 'консультация', 'приём', 'где вы', 'где приём', 'свободно', 'даты'];
+
+  if (triggerWords.some(word => userMessage.includes(word))) {
+    await bot.sendMessage(chatId, 'Вот что вы можете сделать:', replyWithOptions);
+    return;
+  }
+
+  // Сохраняем историю диалога
   if (!userHistories[chatId]) userHistories[chatId] = [];
+  userHistories[chatId].push({ role: 'user', content: msg.text });
 
-  userHistories[chatId].push({ role: 'user', content: userMessage });
-  const recentHistory = userHistories[chatId].slice(-6);
+  // Урезаем до последних 6 сообщений + systemPrompt
+  const recent = userHistories[chatId].slice(-6);
 
   try {
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
-      messages: [systemPrompt, ...recentHistory],
-      max_tokens: 700,
+      messages: [systemPrompt, ...recent],
+      max_tokens: 1000
     });
 
     const reply = response.choices[0].message.content;
     userHistories[chatId].push({ role: 'assistant', content: reply });
-
-    const opts = {
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: 'Задать вопрос', callback_data: 'ask' },
-            { text: 'Тип кожи', callback_data: 'skin' },
-            { text: 'Что использовать', callback_data: 'products' },
-          ]
-        ]
-      }
-    };
-
-    await bot.sendMessage(chatId, reply, opts);
-  } catch (error) {
-    console.error('GPT error:', error.message);
-    await bot.sendMessage(chatId, 'Произошла ошибка. Проверь настройки.');
+    await bot.sendMessage(chatId, reply);
+  } catch (err) {
+    console.error('GPT error:', err.message);
+    await bot.sendMessage(chatId, 'Ошибка при обращении к GPT. Проверь настройки.');
   }
-});
-
-bot.on('callback_query', async (query) => {
-  const chatId = query.message.chat.id;
-  const action = query.data;
-
-  let text = '';
-  if (action === 'ask') {
-    text = 'Опишите, что вас беспокоит. Например: высыпания, сухость, жирный блеск или раздражение. Я помогу подобрать уход.';
-  } else if (action === 'skin') {
-    text = 'Тип кожи определяют по реакциям на очищение и в течение дня:\n— Сухая: стянутость, шелушения.\n— Жирная: блеск, прыщи, расширенные поры.\n— Комбинированная: жирная Т-зона, сухие щёки.\n— Чувствительная: реакция на большинство средств.\nЕсли не уверены — я помогу уточнить.';
-  } else if (action === 'products') {
-    text = 'Базовый уход включает:\n— Очищение (гель или пенка)\n— Увлажнение (крем по типу кожи)\n— Защита (SPF 30+ утром)\nЕсли нужно — подскажу точнее по вашему запросу.';
-  }
-
-  await bot.sendMessage(chatId, text);
 });
